@@ -240,11 +240,13 @@ class ResConfigSettings(models.TransientModel):
             field1 = self.env['ir.model.fields']._get('product.template', "taxes_id").id
             field2 = self.env['ir.model.fields']._get('product.template', "supplier_taxes_id").id
 
-            sql = "delete from ir_default where (field_id = %s or field_id = %s) and company_id=%d" \
-                  % (field1, field2, company_id)
-            sql2 = "update account_journal set bank_account_id=NULL where company_id=%d;" % company_id
-            self._cr.execute(sql)
-            self._cr.execute(sql2)
+            # uuidv7: ids are uuid; pass as query parameters (no %d / unquoted formatting)
+            self._cr.execute(
+                "delete from ir_default where (field_id = %s or field_id = %s) and company_id=%s",
+                (field1, field2, company_id))
+            self._cr.execute(
+                "update account_journal set bank_account_id=NULL where company_id=%s",
+                (company_id,))
 
             self._cr.commit()
         except Exception as e:

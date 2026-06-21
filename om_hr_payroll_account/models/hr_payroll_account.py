@@ -89,7 +89,7 @@ class HrPayslip(models.Model):
                         'date': date,
                         'debit': amount > 0.0 and amount or 0.0,
                         'credit': amount < 0.0 and -amount or 0.0,
-                        'analytic_distribution': {line.salary_rule_id.analytic_account_id.id: 100} if line.salary_rule_id.analytic_account_id else {},
+                        'analytic_distribution': {str(line.salary_rule_id.analytic_account_id.id): 100} if line.salary_rule_id.analytic_account_id else {},
                         'tax_line_id': line.salary_rule_id.account_tax_id.id,
                     })
                     line_ids.append(debit_line)
@@ -104,7 +104,7 @@ class HrPayslip(models.Model):
                         'date': date,
                         'debit': amount < 0.0 and -amount or 0.0,
                         'credit': amount > 0.0 and amount or 0.0,
-                        'analytic_distribution': {line.salary_rule_id.analytic_account_id.id: 100} if line.salary_rule_id.analytic_account_id else {},
+                        'analytic_distribution': {str(line.salary_rule_id.analytic_account_id.id): 100} if line.salary_rule_id.analytic_account_id else {},
                         'tax_line_id': line.salary_rule_id.account_tax_id.id,
                     })
                     line_ids.append(credit_line)

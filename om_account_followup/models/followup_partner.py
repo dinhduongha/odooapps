@@ -28,7 +28,7 @@ class FollowupStatByPartner(models.Model):
         self.env.cr.execute("""
             create view followup_stat_by_partner as (
                 SELECT
-                    l.partner_id * 10000::bigint + l.company_id as id,
+                    md5(l.partner_id::text || '-' || l.company_id::text)::uuid as id,
                     l.partner_id AS partner_id,
                     min(l.date) AS date_move,
                     max(l.date) AS date_move_last,

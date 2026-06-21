@@ -1,3 +1,5 @@
+import hashlib
+import uuid
 from functools import reduce
 from lxml import etree
 from odoo import api, fields, models, _
@@ -237,7 +239,7 @@ class ResPartner(models.Model):
         self.message_post(body=_('Printed overdue payments report'))
         self.message_post(body=_('Printed overdue payments report'))
 
-        wizard_partner_ids = [self.id * 10000 + company_id]
+        wizard_partner_ids = [uuid.UUID(hashlib.md5(f"{self.id}-{company_id}".encode()).hexdigest())]
         followup_ids = self.env['followup.followup'].search(
             [('company_id', '=', company_id)])
         if not followup_ids:

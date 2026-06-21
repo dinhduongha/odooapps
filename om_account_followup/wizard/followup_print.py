@@ -1,6 +1,13 @@
 import datetime
+import hashlib
 import time
+import uuid
 from odoo import api, fields, models, _
+
+
+def _followup_stat_id(partner_id, company_id):
+    # uuidv7: match followup_stat_by_partner.id = md5(partner_id::text||'-'||company_id::text)::uuid
+    return uuid.UUID(hashlib.md5(f"{partner_id}-{company_id}".encode()).hexdigest())
 from markupsafe import Markup
 
 
@@ -206,7 +213,7 @@ class FollowupPrint(models.TransientModel):
                 continue
             if followup_line_id not in fups:
                 continue
-            stat_line_id = partner_id * 10000 + company_id
+            stat_line_id = _followup_stat_id(partner_id, company_id)
             if date_maturity:
                 date_maturity = fields.Date.to_string(date_maturity)
                 if date_maturity <= fups[followup_line_id][0].strftime(

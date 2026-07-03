@@ -109,7 +109,8 @@ class FollowupPrint(models.TransientModel):
     def do_update_followup_level(self, to_update, partner_list, date):
         for id in to_update.keys():
             if to_update[id]['partner_id'] in partner_list:
-                self.env['account.move.line'].browse([int(id)]).write(
+                # uuid: to_update keys are str(move_line.id) uuid strings; browse as-is (no int())
+                self.env['account.move.line'].browse([id]).write(
                     {'followup_line_id': to_update[id]['level'],
                      'followup_date': date})
 

@@ -185,7 +185,7 @@ class FollowupPrint(models.TransientModel):
                 AND (l.partner_id is NOT NULL)
                 AND (l.debit > 0)
                 AND (l.company_id = %s)
-                ORDER BY l.date''' % (company_id))
+                ORDER BY l.date''', (company_id,))
         move_lines = self.env.cr.fetchall()
         old = None
         fups = {}
@@ -198,7 +198,7 @@ class FollowupPrint(models.TransientModel):
             '''SELECT *
             FROM followup_line
             WHERE followup_id=%s
-            ORDER BY delay''' % (fup_id,))
+            ORDER BY delay''', (fup_id,))
 
         for result in self.env.cr.dictfetchall():
             delay = datetime.timedelta(days=result['delay'])

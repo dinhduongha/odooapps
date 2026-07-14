@@ -1,6 +1,7 @@
 import ast
 from odoo.osv import expression
 from odoo import api, models, fields
+from odoo.tools.query import Query
 
 
 class AccountMoveLine(models.Model):

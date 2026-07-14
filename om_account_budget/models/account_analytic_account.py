@@ -1,4 +1,6 @@
 from odoo import fields, models, api
+from odoo.osv import expression
+from odoo.tools.query import Query
 
 
 class AccountAnalyticAccount(models.Model):
@@ -34,4 +36,19 @@ class AccountAnalyticLine(models.Model):
             return expression.expression(domain, self).query
         else:
             return Query(self.env, self._table, self._table_sql)
+
+    @api.model
+    def _apply_ir_rules(self, query, mode='read'):
+        """Add what's missing in ``query`` to implement all appropriate ir.rules
+          (using the current model's rules)
+
+        :param query: the current query object
+        """
+        if self.env.su:
+            return
+
+        Rule = self.env['ir.rule']
+        domain = Rule._compute_domain(self._name, mode)
+        if domain:
+            expression.expression(domain, self.sudo(), self._table, query)
 

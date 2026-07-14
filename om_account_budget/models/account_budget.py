@@ -72,6 +72,9 @@ class CrossoveredBudget(models.Model):
     def action_budget_done(self):
         self.write({'state': 'done'})
 
+    def action_recompute_lines_amounts(self):
+        self.crossovered_budget_line.action_recompute_amounts()
+
 
 class CrossoveredBudgetLines(models.Model):
     _name = "crossovered.budget.lines"
@@ -85,61 +88,28 @@ class CrossoveredBudgetLines(models.Model):
     date_from = fields.Date('Start Date', required=True)
     date_to = fields.Date('End Date', required=True)
     paid_date = fields.Date('Paid Date')
-    currency_id = fields.Many2one('res.currency', related='company_id.currency_id', readonly=True)
+    currency_id = fields.Many2one('res.currency', related='company_id.currency_id', readonly=True, store=True)
     planned_amount = fields.Monetary(
         'Planned Amount', required=True,
         help="Amount you plan to earn/spend. Record a positive amount if it is a revenue and a negative amount if it is a cost.")
     practical_amount = fields.Monetary(
-        compute='_compute_practical_amount', string='Practical Amount', help="Amount really earned/spent.")
+        compute='_compute_practical_amount', store=True, string='Practical Amount',
+        help="Amount really earned/spent.")
     theoritical_amount = fields.Monetary(
-        compute='_compute_theoritical_amount', string='Theoretical Amount',
+        compute='_compute_theoritical_amount', store=True, string='Theoretical Amount',
         help="Amount you are supposed to have earned/spent at this date.")
     percentage = fields.Float(
-        compute='_compute_percentage', string='Achievement',
+        compute='_compute_percentage', store=True, string='Achievement',
         help="Comparison between practical and theoretical amount. This measure tells you if you are below or over budget.")
     company_id = fields.Many2one(related='crossovered_budget_id.company_id', comodel_name='res.company',
         string='Company', store=True, readonly=True)
     is_above_budget = fields.Boolean(compute='_is_above_budget')
     crossovered_budget_state = fields.Selection(related='crossovered_budget_id.state', string='Budget State', store=True, readonly=True)
 
-    @api.model
-    def read_group(self, domain, fields, groupby, offset=0, limit=None, orderby=False, lazy=True):
-        # overrides the default read_group in order to compute the computed fields manually for the group
-        fields_list = {'practical_amount', 'theoritical_amount', 'percentage'}
-        fields = {field.split(':', 1)[0] if field.split(':', 1)[0] in fields_list else field for field in fields}
-        result = super(CrossoveredBudgetLines, self).read_group(domain, fields, groupby, offset=offset, limit=limit,
-                                                                orderby=orderby, lazy=lazy)
-        if any(x in fields for x in fields_list):
-            for group_line in result:
-
-                # initialise fields to compute to 0 if they are requested
-                if 'practical_amount' in fields:
-                    group_line['practical_amount'] = 0
-                if 'theoritical_amount' in fields:
-                    group_line['theoritical_amount'] = 0
-                if 'percentage' in fields:
-                    group_line['percentage'] = 0
-                    group_line['practical_amount'] = 0
-                    group_line['theoritical_amount'] = 0
-
-                if group_line.get('__domain'):
-                    all_budget_lines_that_compose_group = self.search(group_line['__domain'])
-                else:
-                    all_budget_lines_that_compose_group = self.search([])
-                for budget_line_of_group in all_budget_lines_that_compose_group:
-                    if 'practical_amount' in fields or 'percentage' in fields:
-                        group_line['practical_amount'] += budget_line_of_group.practical_amount
-
-                    if 'theoritical_amount' in fields or 'percentage' in fields:
-                        group_line['theoritical_amount'] += budget_line_of_group.theoritical_amount
-
-                    if 'percentage' in fields:
-                        if group_line['theoritical_amount']:
-                            # use a weighted average
-                            group_line['percentage'] = float(
-                                (group_line['practical_amount'] or 0.0) / group_line['theoritical_amount']) * 100
-
-        return result
+    def action_recompute_amounts(self):
+        self._compute_practical_amount()
+        self._compute_theoritical_amount()
+        self._compute_percentage()
 
     def _is_above_budget(self):
         for line in self:
@@ -158,6 +128,7 @@ class CrossoveredBudgetLines(models.Model):
                 computed_name += ' - ' + line.analytic_account_id.name
             line.name = computed_name
 
+    @api.depends('general_budget_id', 'analytic_account_id', 'date_from', 'date_to')
     def _compute_practical_amount(self):
         for line in self:
             acc_ids = line.general_budget_id.account_ids.ids
@@ -198,6 +169,7 @@ class CrossoveredBudgetLines(models.Model):
             self.env.cr.execute(select, where_clause_params)
             line.practical_amount = self.env.cr.fetchone()[0] or 0.0
 
+    @api.depends('paid_date', 'planned_amount', 'date_from', 'date_to')
     def _compute_theoritical_amount(self):
         # beware: 'today' variable is mocked in the python tests and thus, its implementation matter
         today = fields.Date.today()
@@ -221,6 +193,7 @@ class CrossoveredBudgetLines(models.Model):
                     theo_amt = line.planned_amount
             line.theoritical_amount = theo_amt
 
+    @api.depends('practical_amount', 'theoritical_amount')
     def _compute_percentage(self):
         for line in self:
             if line.theoritical_amount != 0.00:

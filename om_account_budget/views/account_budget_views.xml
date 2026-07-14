@@ -77,6 +77,8 @@
                     <button string="Reset to Draft" name="action_budget_draft"
                             invisible="state != 'cancel'" type="object"/>
                     <button string="Cancel Budget" name="action_budget_cancel" invisible="state not in ('confirm', 'validate')" type="object"/>
+                    <button string="Recompute" name="action_recompute_lines_amounts" type="object"
+                            help="Recompute Practical/Theoretical Amount for all lines of this budget from current journal entries."/>
                     <field name="state" widget="statusbar" />
                 </header>
                 <sheet string="Budget">
@@ -276,6 +278,10 @@
         <field name="model">crossovered.budget.lines</field>
         <field name="arch" type="xml">
             <list string="Budget Lines" create="0">
+                <header>
+                    <button name="action_recompute_amounts" type="object" string="Recompute"
+                            help="Recompute Practical/Theoretical Amount for the selected lines from current journal entries."/>
+                </header>
                 <field name="currency_id" invisible="1"/>
                 <field name="crossovered_budget_id" invisible="1"/>
                 <field name="general_budget_id" />
@@ -296,6 +302,10 @@
         <field name="model">crossovered.budget.lines</field>
         <field name="arch" type="xml">
             <form string="Budget Lines">
+                <header>
+                    <button name="action_recompute_amounts" type="object" string="Recompute"
+                            help="Recompute Practical/Theoretical Amount from current journal entries."/>
+                </header>
                 <sheet>
                     <group col="4">
                         <field name="currency_id" invisible="1"/>

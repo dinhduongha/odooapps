@@ -88,13 +88,13 @@ class ReportGeneralLedger(models.AbstractModel):
         filters = filters.replace('account_move_line__move_id', 'm').replace('account_move_line', 'l')
 
         # Get move lines base on sql query and Calculate the total balance of move lines
-        sql = ('''SELECT l.id AS lid, l.account_id AS account_id, 
-            l.date AS ldate, j.code AS lcode, l.currency_id, 
-            l.amount_currency, '' AS analytic_account_id,
-            l.ref AS lref, l.name AS lname, COALESCE(l.debit,0) AS debit, 
-            COALESCE(l.credit,0) AS credit, 
+        sql = ('''SELECT l.id AS lid, l.account_id AS account_id,
+            l.date AS ldate, j.code AS lcode, l.currency_id,
+            l.amount_currency, l.analytic_distribution AS analytic_distribution,
+            l.ref AS lref, l.name AS lname, COALESCE(l.debit,0) AS debit,
+            COALESCE(l.credit,0) AS credit,
             COALESCE(SUM(l.debit),0) - COALESCE(SUM(l.credit), 0) AS balance,\
-            m.name AS move_name, c.symbol AS currency_code, 
+            m.name AS move_name, c.symbol AS currency_code,
             p.name AS partner_name\
             FROM account_move_line l\
             JOIN account_move m ON (l.move_id=m.id)\
@@ -102,17 +102,35 @@ class ReportGeneralLedger(models.AbstractModel):
             LEFT JOIN res_partner p ON (l.partner_id=p.id)\
             JOIN account_journal j ON (l.journal_id=j.id)\
             JOIN account_account acc ON (l.account_id = acc.id) \
-            WHERE l.account_id IN %s ''' + filters + ''' GROUP BY l.id, 
-            l.account_id, l.date, j.code, l.currency_id, l.amount_currency, 
+            WHERE l.account_id IN %s ''' + filters + ''' GROUP BY l.id,
+            l.account_id, l.date, j.code, l.currency_id, l.amount_currency,
             l.ref, l.name, m.name, c.symbol, p.name ORDER BY ''' + sql_sort)
         params = (tuple(accounts.ids),) + tuple(where_params)
         cr.execute(sql, params)
+        rows = cr.dictfetchall()
 
-        for row in cr.dictfetchall():
+        # Resolve analytic account display names from each line's
+        # analytic_distribution (a {analytic_account_id: percentage} json
+        # dict) in one batch instead of per-row browse calls.
+        analytic_ids = {
+            aid
+            for row in rows
+            for aid in (row['analytic_distribution'] or {})
+        }
+        analytic_names = {
+            str(rec.id): rec.display_name
+            for rec in self.env['account.analytic.account'].browse(analytic_ids)
+        }
+
+        for row in rows:
             balance = 0
             for line in move_lines.get(row['account_id']):
                 balance += line['debit'] - line['credit']
             row['balance'] += balance
+            distribution = row.pop('analytic_distribution') or {}
+            row['analytic_account_id'] = ', '.join(
+                analytic_names[aid] for aid in distribution if aid in analytic_names
+            )
             move_lines[row.pop('account_id')].append(row)
 
         # Calculate the debit, credit and balance for Accounts
